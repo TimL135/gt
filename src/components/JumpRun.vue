@@ -1,15 +1,8 @@
 <template>
-  <div
-    class="game"
-    tabindex="0"
-    @keypress.w="up()"
-    @keypress.s="down()"
-    @keypress.d="right()"
-    @keypress.a="left()"
-  >
+  <div class="game" tabindex="0">
     <div id="char" :class="{}"></div>
-    <div :class="{ blockLow: true == gameStarted && 0 == positionvar }"></div>
-    <div :class="{ blockHigh: true == gameStarted && 1 == positionvar }"></div>
+    <div :class="{}"></div>
+    <div :class="{}"></div>
   </div>
   <button id="btn" @click="start()" :class="{ startBtn: true == gameStarted }">
     Start Game
@@ -27,6 +20,7 @@ export default defineComponent({
       x: 254,
       y: 104,
       positionvar: 0,
+      pressedKeys: {} as Record<string, boolean>,
     };
   },
   computed: {
@@ -35,20 +29,44 @@ export default defineComponent({
     },
   },
   methods: {
-    position() {
-      setInterval(() => (this.positionvar = this.getRandomInt(2)), 1600);
+    gameloop() {
+      this.handlePlayerMovement();
     },
+    handlePlayerMovement() {
+      if (this.pressedKeys["ArrowDown"]) {
+        this.down();
+      }
+      if (this.pressedKeys["ArrowLeft"]) {
+        this.left();
+      }
+      if (this.pressedKeys["ArrowRight"]) {
+        this.right();
+      }
+      if (this.pressedKeys["ArrowUp"]) {
+        this.up();
+      }
+    },
+    createEnemy() {},
     getRandomInt(max: number) {
       return Math.floor(Math.random() * max);
     },
     start() {
       this.gameStarted = true;
-      this.position();
+      window.onkeyup = (e: any) => {
+        this.pressedKeys[e.key] = false;
+      };
+      window.onkeydown = (e: any) => {
+        this.pressedKeys[e.key] = true;
+      };
+      setInterval(() => {
+        this.gameloop();
+      }, 1000 / 60);
+
       console.log("game started");
     },
     up() {
       if (this.y > 105) {
-        this.y -= 15;
+        this.y -= 5;
         this.y < 104 ? (this.y = 104) : null;
         var d = document.getElementById("char");
         d!.style.position = "absolute";
@@ -59,7 +77,7 @@ export default defineComponent({
     },
     down() {
       if (this.y < 638) {
-        this.y += 15;
+        this.y += 5;
         this.y > 639 ? (this.y = 639) : null;
         var d = document.getElementById("char");
         d!.style.position = "absolute";
@@ -70,7 +88,7 @@ export default defineComponent({
     },
     right() {
       if (this.x < 790) {
-        this.x += 15;
+        this.x += 5;
         this.x > 789 ? (this.x = 789) : null;
         var d = document.getElementById("char");
         d!.style.position = "absolute";
@@ -81,7 +99,7 @@ export default defineComponent({
     },
     left() {
       if (this.x > 255) {
-        this.x -= 15;
+        this.x -= 5;
         this.x < 254 ? (this.x = 254) : null;
         var d = document.getElementById("char");
         d!.style.position = "absolute";
@@ -112,5 +130,20 @@ export default defineComponent({
   width: 15px;
   height: 15px;
   background-color: red;
+}
+#enemySmall {
+  width: 15px;
+  height: 15px;
+  background-color: rgb(99, 206, 50);
+}
+#enemyMedium {
+  width: 20px;
+  height: 20px;
+  background-color: rgb(50, 206, 198);
+}
+#enemyBig {
+  width: 25px;
+  height: 25px;
+  background-color: rgb(84, 50, 206);
 }
 </style>

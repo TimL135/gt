@@ -1,17 +1,31 @@
 <template>
-  <div class="game" tabindex="0">
-    <div id="char" :class="{}"></div>
+  <div class="row" id="scoreCard">
+    <div class="col align-self-center">
+      Score: <span id="scoreSpan">{{ Math.round(score) }}</span>
+    </div>
+    <div class="col align-self-center">
+      Highscore: <span id="scoreSpan">{{ Math.round(highscore) }}</span>
+    </div>
+  </div>
+  <div class="game">
+    <div id="char" :class="{}" :style="{ left: x + 'px', top: y + 'px' }"></div>
     <div
       :id="Enemy.id"
       :class="Enemy.size"
       v-for="Enemy of Enemies"
       :key="Enemy"
+      :style="{ left: Enemy.x + 'px', top: Enemy.y + 'px' }"
     ></div>
+
+    <button
+      id="btn"
+      @click="start()"
+      :class="{ startBtn: true == gameStarted }"
+      class="btn btn-success align-self-center"
+    >
+      Start Game
+    </button>
   </div>
-  <button id="btn" @click="start()" :class="{ startBtn: true == gameStarted }">
-    Start Game
-  </button>
-  <p>Score: <span id="scoreSpan"></span></p>
 </template>
 
 <script lang="ts">
@@ -23,22 +37,28 @@ interface Enemy {
   id: string;
   moveVektor: number[];
 }
-
+interface Sizes {
+  eSmall: 15;
+  eMedium: 20;
+  eBig: 25;
+}
 export default defineComponent({
   data() {
     return {
+      borderRight: 0,
+      borderLeft: 0,
+      borderUp: 0,
+      borderDown: 0,
       gameStarted: false,
-      x: 254,
-      y: 104,
+      difficulty: 1,
+      highscore: 0,
+      score: 0,
+      x: 0,
+      y: 0,
+      gameloopCounter: 0,
       positionvar: 0,
       pressedKeys: {} as Record<string, boolean>,
       Enemies: [] as Enemy[],
-      // Enemy: {
-      //   x: 0,
-      //   y: 0,
-      //   size: "eSmall",
-      //id:""
-      // },
     };
   },
   computed: {
@@ -46,10 +66,50 @@ export default defineComponent({
       return false;
     },
   },
+  mounted() {
+    window.addEventListener("resize", () => {
+      this.changeDisplaySize();
+    });
+    setInterval(() => {
+      this.gameStarted ? this.gameloop() : null;
+    }, 1000 / 60);
+    this.borderRight = (window.innerWidth * (100 - 100 / 6)) / 100 - 2;
+    this.borderLeft = (window.innerWidth * (100 / 6)) / 100 + 2;
+    this.borderUp = window.innerHeight - 793;
+    this.borderDown = window.innerHeight - (window.innerHeight - 705);
+    this.y = this.borderDown - this.borderUp * 1.5;
+    this.x = this.borderRight - this.borderLeft * 2;
+  },
   methods: {
     gameloop() {
       this.handlePlayerMovement();
       this.handleEnemyMovement();
+      this.score += this.difficulty;
+      this.colisionHandling();
+      this.gameloopCounter++;
+      this.gameloopCounter % 1200 == 0 ? (this.difficulty += 0.5) : null;
+      this.gameloopCounter % 1800 == 0 ? this.createEnemy() : null;
+    },
+    colisionHandling() {
+      let map = {
+        eSmall: 15,
+        eMedium: 20,
+        eBig: 25,
+      };
+      for (let enemy of this.Enemies) {
+        if (
+          Math.sqrt(
+            (enemy.x + map[enemy.size as keyof Sizes] / 2 - (this.x + 7.5)) **
+              2 +
+              (enemy.y + map[enemy.size as keyof Sizes] / 2 - (this.y + 7.5)) **
+                2
+          ) <
+          map[enemy.size as keyof Sizes] / 2 + 7.5
+        ) {
+          this.gameStarted = false;
+          this.score > this.highscore ? (this.highscore = this.score) : null;
+        }
+      }
     },
     handlePlayerMovement() {
       if (this.pressedKeys["ArrowDown"]) {
@@ -67,12 +127,22 @@ export default defineComponent({
     },
     handleEnemyMovement() {
       for (let enemy of this.Enemies) {
-        enemy.x += enemy.moveVektor[0];
-        enemy.y += enemy.moveVektor[1];
-        let enemyDiv = document.getElementById(enemy.id);
-        enemyDiv!.style.position = "absolute";
-        enemyDiv!.style.left = enemy.x + "px";
-        enemyDiv!.style.top = enemy.y + "px";
+        enemy.x += enemy.moveVektor[0] * this.difficulty;
+        enemy.y += enemy.moveVektor[1] * this.difficulty;
+        if (enemy.y < this.borderUp - 25 || enemy.y > this.borderDown + 25) {
+          this.Enemies.splice(
+            this.Enemies.findIndex((e) => e == enemy),
+            1
+          );
+          this.createEnemy();
+        }
+        if (enemy.x < this.borderLeft - 25 || enemy.x > this.borderRight + 25) {
+          this.Enemies.splice(
+            this.Enemies.findIndex((e) => e == enemy),
+            1
+          );
+          this.createEnemy();
+        }
       }
     },
     createEnemy() {
@@ -82,28 +152,27 @@ export default defineComponent({
       let moveArray = [] as number[];
       switch (this.getRandomInt(4)) {
         case 0:
-          y = 105 - 25;
+          y = this.borderUp - 25;
           moveArray = [(Math.random() - 0.5) * 2, 1];
           break;
         case 1:
-          y = 638 + 25;
+          y = this.borderDown + 25;
           moveArray = [(Math.random() - 0.5) * 2, -1];
           break;
         case 2:
-          x = 790 + 25;
+          x = this.borderRight + 25;
           moveArray = [-1, (Math.random() - 0.5) * 2];
           break;
         case 3:
-          x = 255 - 25;
+          x = this.borderLeft - 25;
           moveArray = [1, (Math.random() - 0.5) * 2];
           break;
       }
-
       if (!x) {
-        x = this.getRandomInt(534);
+        x = this.getRandomInt(this.borderRight - this.borderLeft);
       }
       if (!y) {
-        y = this.getRandomInt(534);
+        y = this.getRandomInt(this.borderDown - this.borderUp);
       }
       switch (this.getRandomInt(3)) {
         case 0:
@@ -128,6 +197,11 @@ export default defineComponent({
       return Math.floor(Math.random() * max);
     },
     start() {
+      this.score = 0;
+      this.difficulty = 2;
+      this.y = this.borderDown - this.borderUp * 1.5;
+      this.x = this.borderRight - this.borderLeft * 2;
+      this.Enemies = [] as Enemy[];
       this.gameStarted = true;
       window.onkeyup = (e: any) => {
         this.pressedKeys[e.key] = false;
@@ -135,55 +209,40 @@ export default defineComponent({
       window.onkeydown = (e: any) => {
         this.pressedKeys[e.key] = true;
       };
-      setInterval(() => {
-        this.gameloop();
-      }, 1000 / 60);
-      this.createEnemy();
+      for (let i = 0; i < 8; i++) this.createEnemy();
       console.log("game started");
     },
     up() {
-      if (this.y > 105) {
+      if (this.y > this.borderUp) {
         this.y -= 5;
-        this.y < 104 ? (this.y = 104) : null;
-        var d = document.getElementById("char");
-        d!.style.position = "absolute";
-        d!.style.left = this.x + "px";
-        d!.style.top = this.y + "px";
-        console.log("up");
+        this.y < this.borderUp ? (this.y = this.borderUp) : null;
       }
     },
     down() {
-      if (this.y < 638) {
+      if (this.y < this.borderDown) {
         this.y += 5;
-        this.y > 639 ? (this.y = 639) : null;
-        var d = document.getElementById("char");
-        d!.style.position = "absolute";
-        d!.style.left = this.x + "px";
-        d!.style.top = this.y + "px";
-        console.log("down");
+        this.y > this.borderDown + 15 ? (this.y = this.borderDown + 15) : null;
       }
     },
     right() {
-      if (this.x < 790) {
+      if (this.x < this.borderRight) {
         this.x += 5;
-        this.x > 789 ? (this.x = 789) : null;
-        var d = document.getElementById("char");
-        d!.style.position = "absolute";
-        d!.style.left = this.x + "px";
-        d!.style.top = this.y + "px";
-        console.log("right");
+        this.x > this.borderRight - 15
+          ? (this.x = this.borderRight - 15)
+          : null;
       }
     },
     left() {
-      if (this.x > 255) {
+      if (this.x > this.borderLeft) {
         this.x -= 5;
-        this.x < 254 ? (this.x = 254) : null;
-        var d = document.getElementById("char");
-        d!.style.position = "absolute";
-        d!.style.left = this.x + "px";
-        d!.style.top = this.y + "px";
-        console.log("left");
+        this.x < this.borderLeft - 1 ? (this.x = this.borderLeft - 1) : null;
       }
+    },
+    changeDisplaySize() {
+      this.borderRight = (window.innerWidth * (100 - 100 / 6)) / 100 - 2;
+      this.borderLeft = (window.innerWidth * (100 / 6)) / 100 + 2;
+      this.borderUp = window.innerHeight - 793;
+      this.borderDown = window.innerHeight - (window.innerHeight - 705);
     },
   },
 });
@@ -191,36 +250,62 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .game {
-  width: 550px;
+  // widht=1280px
+  width: 100%;
   height: 550px;
   border: 2px solid black;
-  margin: auto;
+  background-color: rgb(255, 255, 255);
+  z-index: 1;
 }
-#btn {
+#scoreCard {
+  background-color: white;
   position: relative;
-  top: 110px;
-}
-.startBtn {
-  visibility: hidden;
+  z-index: 1;
 }
 #char {
+  position: absolute;
+  border-radius: 50%;
   width: 15px;
   height: 15px;
   background-color: red;
 }
 .eSmall {
+  position: absolute;
+  border-radius: 50%;
   width: 15px;
   height: 15px;
   background-color: rgb(99, 206, 50);
 }
 .eMedium {
+  position: absolute;
+  border-radius: 50%;
   width: 20px;
   height: 20px;
   background-color: rgb(50, 206, 198);
 }
 .eBig {
+  position: absolute;
+  border-radius: 50%;
   width: 25px;
   height: 25px;
   background-color: rgb(84, 50, 206);
+}
+.sideBlock {
+  background-color: red;
+  z-index: 1;
+  position: fixed;
+}
+.block {
+  width: 100%;
+  height: 30px;
+  z-index: 1;
+  background-color: blue;
+  position: fixed;
+}
+.startBtn {
+  display: none;
+}
+.btn {
+  padding: none !important;
 }
 </style>

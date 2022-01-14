@@ -168,6 +168,7 @@ export default defineComponent({
     },
     explosionBomb() {
       return true;
+      return false;
     },
     despawnItems() {
       for (let item of this.items) {
